@@ -218,13 +218,31 @@ app.patch("/api/manager/leaves/:id/status", requireManager, async (req, res) => 
 });
 
 const PORT = process.env.PORT || 3000;
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-    app.listen(PORT, () => console.log(`Leave Management System running at http://localhost:${PORT}`));
-  })
-  .catch(err => {
+
+const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log("Connected to MongoDB");
+};
+
+// Local execution
+if (require.main === module) {
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Leave Management running on port ${PORT}`);
+      });
+    })
+    .catch(err => console.error("MongoDB connection failed:", err.message));
+}
+
+// Vercel execution
+module.exports = async (req, res) => {
+  try {
+    await connectDB();
+    return app(req, res);
+  } catch (err) {
     console.error("MongoDB connection failed:", err.message);
-    console.error("Make sure MongoDB Server is running and .env has the correct URI.");
-    process.exit(1);
-  });
+    return res.status(500).json({ message: "Database connection failed" });
+  }
+};
